@@ -5,61 +5,31 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/ryandonnelly/game-lobby-service/internal/lobby"
+	"github.com/ryandonnelly/game-lobby-service/internal/gameserver"
 	"github.com/ryandonnelly/game-lobby-service/internal/matchmaking"
 	"github.com/ryandonnelly/game-lobby-service/internal/party"
 	ws "github.com/ryandonnelly/game-lobby-service/internal/websocket"
 )
 
-var manager = lobby.NewManager()
-var queue = matchmaking.NewQueue(manager)
+var serverManager = gameserver.NewManager()
+var queue = matchmaking.NewQueue(serverManager)
 var partyManager = party.NewManager()
 var hub = ws.NewHub()
-
-func createLobby(w http.ResponseWriter, r *http.Request) {
-
-	host := r.URL.Query().Get("player")
-
-	l := manager.CreateLobby(host)
-
-	json.NewEncoder(w).Encode(l)
-}
-
-func joinLobby(w http.ResponseWriter, r *http.Request) {
-
-	lobbyID := r.URL.Query().Get("lobby")
-	player := r.URL.Query().Get("player")
-
-	l, exists := manager.GetLobby(lobbyID)
-
-	if !exists {
-		http.Error(w, "Lobby not found", http.StatusNotFound)
-		return
-	}
-
-	success := l.AddPlayer(player)
-
-	if !success {
-		http.Error(w, "Lobby full or player already joined", http.StatusBadRequest)
-		return
-	}
-
-	json.NewEncoder(w).Encode(l)
-}
 
 func soloQueue(w http.ResponseWriter, r *http.Request) {
 
 	player := r.URL.Query().Get("player")
 
-	l := queue.JoinSolo(player)
+	match := queue.JoinSolo(player)
 
-	if l == nil {
+	if match == nil {
 		w.Write([]byte("Searching for match..."))
 		return
 	}
 
-	json.NewEncoder(w).Encode(l)
+	json.NewEncoder(w).Encode(match)
 }
+
 func createParty(w http.ResponseWriter, r *http.Request) {
 
 	player := r.URL.Query().Get("player")
@@ -67,27 +37,6 @@ func createParty(w http.ResponseWriter, r *http.Request) {
 	p := partyManager.CreateParty(player)
 
 	json.NewEncoder(w).Encode(p)
-}
-
-func searchMatch(w http.ResponseWriter, r *http.Request) {
-
-	partyID := r.URL.Query().Get("party")
-
-	p, exists := partyManager.GetParty(partyID)
-
-	if !exists {
-		http.Error(w, "Party not found", http.StatusNotFound)
-		return
-	}
-
-	l := queue.JoinParty(p)
-
-	if l == nil {
-		w.Write([]byte("Searching for match..."))
-		return
-	}
-
-	json.NewEncoder(w).Encode(l)
 }
 
 func joinParty(w http.ResponseWriter, r *http.Request) {
@@ -112,20 +61,40 @@ func joinParty(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(p)
 }
 
+func searchMatch(w http.ResponseWriter, r *http.Request) {
+
+	partyID := r.URL.Query().Get("party")
+
+	p, exists := partyManager.GetParty(partyID)
+
+	if !exists {
+		http.Error(w, "Party not found", http.StatusNotFound)
+		return
+	}
+
+	match := queue.JoinParty(p)
+
+	if match == nil {
+		w.Write([]byte("Searching for match..."))
+		return
+	}
+
+	json.NewEncoder(w).Encode(match)
+}
+
 func main() {
 
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/lobbies/create", createLobby)
-	mux.HandleFunc("/lobbies/join", joinLobby)
-
+	// matchmaking
 	mux.HandleFunc("/matchmaking/solo", soloQueue)
 	mux.HandleFunc("/matchmaking/search", searchMatch)
 
+	// party
 	mux.HandleFunc("/party/create", createParty)
 	mux.HandleFunc("/party/join", joinParty)
 
-	// WebSocket endpoint
+	// websocket
 	mux.HandleFunc("/ws", hub.HandleConnection)
 
 	log.Println("Server running on :8080")

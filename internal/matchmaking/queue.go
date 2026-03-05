@@ -4,6 +4,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/ryandonnelly/game-lobby-service/internal/gameserver"
 	"github.com/ryandonnelly/game-lobby-service/internal/match"
 	"github.com/ryandonnelly/game-lobby-service/internal/party"
 )
@@ -11,11 +12,13 @@ import (
 type Queue struct {
 	Parties []*party.Party
 	Mutex   sync.Mutex
+	Servers *gameserver.Manager
 }
 
-func NewQueue() *Queue {
+func NewQueue(serverManager *gameserver.Manager) *Queue {
 	return &Queue{
 		Parties: []*party.Party{},
+		Servers: serverManager,
 	}
 }
 
@@ -62,8 +65,11 @@ func (q *Queue) JoinParty(p *party.Party) *match.Match {
 		return nil
 	}
 
-	// create match using your match system
-	m := match.NewMatch(players)
+	// allocate game server
+	server := q.Servers.AllocateServer()
+
+	// create match
+	m := match.NewMatch(players, server.IP, server.Port)
 
 	// rebuild queue without used parties
 	newQueue := []*party.Party{}

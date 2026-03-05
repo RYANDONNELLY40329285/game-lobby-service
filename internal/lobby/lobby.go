@@ -27,6 +27,13 @@ func (l *Lobby) AddPlayer(playerID string) bool {
 	l.Mutex.Lock()
 	defer l.Mutex.Unlock()
 
+	// check if player already exists
+	for _, p := range l.Players {
+		if p == playerID {
+			return false
+		}
+	}
+
 	if len(l.Players) >= l.MaxPlayer {
 		return false
 	}

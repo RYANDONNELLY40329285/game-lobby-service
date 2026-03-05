@@ -20,25 +20,25 @@ type Client struct {
 }
 
 type Hub struct {
-	Clients map[*Client]bool
+	Lobbies map[string]map[*Client]bool
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		Clients: make(map[*Client]bool),
+		Lobbies: make(map[string]map[*Client]bool),
 	}
 }
 
-func (h *Hub) Broadcast(message []byte) {
+func (h *Hub) BroadcastToLobby(lobby string, message []byte) {
 
-	for client := range h.Clients {
+	for client := range h.Lobbies[lobby] {
 
 		err := client.Conn.WriteMessage(websocket.TextMessage, message)
 
 		if err != nil {
 			log.Println(err)
 			client.Conn.Close()
-			delete(h.Clients, client)
+			delete(h.Lobbies[lobby], client)
 		}
 	}
 }
@@ -46,32 +46,43 @@ func (h *Hub) Broadcast(message []byte) {
 func (h *Hub) HandleConnection(w http.ResponseWriter, r *http.Request) {
 
 	conn, err := Upgrader.Upgrade(w, r, nil)
-
 	if err != nil {
 		log.Println(err)
 		return
 	}
 
+	player := r.URL.Query().Get("player")
+	lobby := r.URL.Query().Get("lobby")
+
 	client := &Client{
-		Conn: conn,
+		Conn:   conn,
+		Player: player,
+		Lobby:  lobby,
 	}
 
-	h.Clients[client] = true
+	// create lobby room if it doesn't exist
+	if h.Lobbies[lobby] == nil {
+		h.Lobbies[lobby] = make(map[*Client]bool)
+	}
 
-	log.Println("Client connected")
+	h.Lobbies[lobby][client] = true
+
+	log.Println(player, "connected to lobby", lobby)
 
 	for {
 
 		_, msg, err := conn.ReadMessage()
 
 		if err != nil {
-			delete(h.Clients, client)
+			log.Println(player, "disconnected")
+
+			delete(h.Lobbies[lobby], client)
 			conn.Close()
 			break
 		}
 
-		log.Println("Received:", string(msg))
+		log.Println("Message from", player, ":", string(msg))
 
-		h.Broadcast(msg)
+		h.BroadcastToLobby(lobby, msg)
 	}
 }

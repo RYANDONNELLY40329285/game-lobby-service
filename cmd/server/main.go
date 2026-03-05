@@ -19,6 +19,28 @@ func createLobby(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(l)
 }
 
+func joinLobby(w http.ResponseWriter, r *http.Request) {
+
+	lobbyID := r.URL.Query().Get("lobby")
+	player := r.URL.Query().Get("player")
+
+	l, exists := manager.GetLobby(lobbyID)
+
+	if !exists {
+		http.Error(w, "Lobby not found", http.StatusNotFound)
+		return
+	}
+
+	success := l.AddPlayer(player)
+
+	if !success {
+		http.Error(w, "Lobby full or player already joined", http.StatusBadRequest)
+		return
+	}
+
+	json.NewEncoder(w).Encode(l)
+}
+
 func main() {
 
 	mux := http.NewServeMux()

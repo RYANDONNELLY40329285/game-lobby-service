@@ -5,11 +5,11 @@ import (
 )
 
 type Lobby struct {
-	ID        string
-	HostID    string
-	MaxPlayer int
-	Players   []string
-	Mutex     sync.Mutex
+	ID        string     `json:"id"`
+	HostID    string     `json:"host"`
+	MaxPlayer int        `json:"max_players"`
+	Players   []string   `json:"players"`
+	Mutex     sync.Mutex `json:"-"`
 }
 
 func NewLobby(id string, host string, max int) *Lobby {

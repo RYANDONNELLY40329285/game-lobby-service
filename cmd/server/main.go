@@ -6,9 +6,11 @@ import (
 	"net/http"
 
 	"github.com/ryandonnelly/game-lobby-service/internal/lobby"
+	ws "github.com/ryandonnelly/game-lobby-service/internal/websocket"
 )
 
 var manager = lobby.NewManager()
+var hub = ws.NewHub()
 
 func createLobby(w http.ResponseWriter, r *http.Request) {
 
@@ -47,6 +49,9 @@ func main() {
 
 	mux.HandleFunc("/lobbies/create", createLobby)
 	mux.HandleFunc("/lobbies/join", joinLobby)
+
+	// WebSocket endpoint
+	mux.HandleFunc("/ws", hub.HandleConnection)
 
 	log.Println("Server running on :8080")
 

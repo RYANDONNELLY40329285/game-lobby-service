@@ -46,6 +46,7 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/lobbies/create", createLobby)
+	mux.HandleFunc("/lobbies/join", joinLobby)
 
 	log.Println("Server running on :8080")
 
